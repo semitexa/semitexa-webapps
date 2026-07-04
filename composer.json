@@ -1,0 +1,39 @@
+{
+    "name": "semitexa/webapps",
+    "description": "Semitexa OS external web-apps registry: wrap any site (YouTube, Netflix, Google Docs…) as a first-class OS app the model can add on demand",
+    "type": "semitexa-module",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Semitexa",
+            "email": "support@semitexa.com"
+        }
+    ],
+    "require": {
+        "php": "^8.4",
+        "semitexa/core": "*",
+        "semitexa/os": "*",
+        "semitexa/llm": "*",
+        "semitexa/platform-settings": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Semitexa\\WebApps\\": "src/"
+        }
+    },
+    "extra": {
+        "semitexa-module": {
+            "name": "webapps",
+            "description": "External web-apps registry + generic site wrapper for the OS",
+            "extends": "os"
+        }
+    },
+    "version": "0.0.1",
+    "keywords": [
+        "semitexa",
+        "os",
+        "web-apps",
+        "iframe",
+        "launcher"
+    ]
+}
