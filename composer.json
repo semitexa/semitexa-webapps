@@ -28,7 +28,6 @@
             "extends": "os"
         }
     },
-    "version": "0.0.1",
     "keywords": [
         "semitexa",
         "os",
