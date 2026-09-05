@@ -71,8 +71,7 @@ final class WebAppStore
             $name = mb_substr($name, 0, self::MAX_NAME);
         }
 
-        $url = $this->normalizeUrl($url);
-        $host = (string) (parse_url($url, PHP_URL_HOST) ?: '');
+        [$url, $host] = $this->normalizeUrl($url);
 
         $apps = $this->all();
         foreach ($apps as $app) {
@@ -127,15 +126,37 @@ final class WebAppStore
     /**
      * Accept only absolute http/https URLs; default a bare host to https://.
      *
+     * This is a trust boundary, not a formatting nicety: the URL reaches here
+     * from the model through {@see OpenWebAppSkill}'s exposed `url` argument and
+     * ends up as an iframe's src.
+     *
+     * FILTER_VALIDATE_URL is deliberately NOT used — it rejects internationalised
+     * hosts (`https://пошта.укр`) and underscored ones, both of which are real
+     * sites, while still admitting the junk below.
+     *
+     * @return array{string, string} the URL and its lower-cased host
+     *
      * @throws \InvalidArgumentException
      */
-    private function normalizeUrl(string $url): string
+    private function normalizeUrl(string $url): array
     {
         $url = trim($url);
         if ($url === '') {
             throw new \InvalidArgumentException('A URL is required.');
         }
-        if (!preg_match('#^https?://#i', $url)) {
+
+        // A scheme-looking prefix must be an http(s) one. Prepending https://
+        // to anything else swallowed the scheme into the host: "ftp://x" became
+        // "https://ftp://x" — accepted, unopenable, and with a host of "ftp",
+        // so the host-dedupe in add() collapsed every ftp address onto one app.
+        // A single-slash typo ("https:/x") did the same with a host of "https".
+        // The digit lookahead keeps "localhost:9507" a bare host with a port
+        // rather than a scheme named "localhost".
+        $isHttp = preg_match('#^https?://#i', $url) === 1;
+        if (!$isHttp && preg_match('#^[a-z][a-z0-9+.\-]*:(?!\d)#i', $url) === 1) {
+            throw new \InvalidArgumentException('A valid http(s) URL is required.');
+        }
+        if (!$isHttp) {
             $url = 'https://' . ltrim($url, '/');
         }
 
@@ -144,8 +165,39 @@ final class WebAppStore
         if ($host === null || $host === '' || !in_array($scheme, ['http', 'https'], true)) {
             throw new \InvalidArgumentException('A valid http(s) URL is required.');
         }
+        $this->assertHostShape($host);
 
-        return $url;
+        // Hosts are case-insensitive; without this "YouTube.com" and
+        // "youtube.com" register as two separate apps.
+        return [$url, mb_strtolower($host)];
+    }
+
+    /**
+     * parse_url is lenient: it hands back "not a url" and ".com" as hosts.
+     * A hostname is dot-separated non-empty labels of letters (any script, so
+     * internationalised domains keep working), digits, hyphens or underscores —
+     * or a bracketed IPv6 literal, which is not dotted at all.
+     *
+     * @throws \InvalidArgumentException
+     */
+    private function assertHostShape(string $host): void
+    {
+        // parse_url keeps the brackets on an IPv6 literal, and the colons
+        // inside one fail every label test below — so "https://[2001:db8::1]/"
+        // was rejected as malformed. Validate the literal itself instead.
+        if (str_starts_with($host, '[') && str_ends_with($host, ']')) {
+            if (filter_var(substr($host, 1, -1), FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) === false) {
+                throw new \InvalidArgumentException('A valid http(s) URL is required.');
+            }
+
+            return;
+        }
+
+        foreach (explode('.', $host) as $label) {
+            if (preg_match('/^[\p{L}\p{N}_-]+$/u', $label) !== 1) {
+                throw new \InvalidArgumentException('A valid http(s) URL is required.');
+            }
+        }
     }
 
     /**
@@ -161,7 +213,9 @@ final class WebAppStore
             'id' => (string) ($row['id'] ?? ''),
             'name' => (string) ($row['name'] ?? ''),
             'url' => $url,
-            'host' => (string) ($row['host'] ?? (parse_url($url, PHP_URL_HOST) ?: '')),
+            // Lower-cased on read too, so rows written before the host was
+            // normalised still dedupe against new ones.
+            'host' => mb_strtolower((string) ($row['host'] ?? (parse_url($url, PHP_URL_HOST) ?: ''))),
             'icon' => (string) ($row['icon'] ?? 'globe'),
             'createdAt' => (string) ($row['createdAt'] ?? ''),
         ];

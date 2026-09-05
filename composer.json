@@ -21,6 +21,11 @@
             "Semitexa\\WebApps\\": "src/"
         }
     },
+    "autoload-dev": {
+        "psr-4": {
+            "Semitexa\\WebApps\\Tests\\": "tests/"
+        }
+    },
     "extra": {
         "semitexa-module": {
             "name": "webapps",
