@@ -175,12 +175,24 @@ final class WebAppStore
     /**
      * parse_url is lenient: it hands back "not a url" and ".com" as hosts.
      * A hostname is dot-separated non-empty labels of letters (any script, so
-     * internationalised domains keep working), digits, hyphens or underscores.
+     * internationalised domains keep working), digits, hyphens or underscores —
+     * or a bracketed IPv6 literal, which is not dotted at all.
      *
      * @throws \InvalidArgumentException
      */
     private function assertHostShape(string $host): void
     {
+        // parse_url keeps the brackets on an IPv6 literal, and the colons
+        // inside one fail every label test below — so "https://[2001:db8::1]/"
+        // was rejected as malformed. Validate the literal itself instead.
+        if (str_starts_with($host, '[') && str_ends_with($host, ']')) {
+            if (filter_var(substr($host, 1, -1), FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) === false) {
+                throw new \InvalidArgumentException('A valid http(s) URL is required.');
+            }
+
+            return;
+        }
+
         foreach (explode('.', $host) as $label) {
             if (preg_match('/^[\p{L}\p{N}_-]+$/u', $label) !== 1) {
                 throw new \InvalidArgumentException('A valid http(s) URL is required.');

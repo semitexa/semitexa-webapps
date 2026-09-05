@@ -108,6 +108,7 @@ final class WebAppStoreTest extends TestCase
         yield 'punycode' => ['http://xn--80ak6aa92e.com', 'xn--80ak6aa92e.com'];
         yield 'an underscored host' => ['https://a_b.example.com', 'a_b.example.com'];
         yield 'an internationalised path' => ['https://пошта.укр/шлях', 'пошта.укр'];
+        yield 'a bracketed IPv6 literal' => ['https://[2001:db8::1]/', '[2001:db8::1]'];
     }
 
     #[Test]
