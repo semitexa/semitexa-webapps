@@ -79,6 +79,35 @@ final class WebAppStoreTest extends TestCase
         yield 'an inline document' => ['data:text/html,<script>x</script>'];
         yield 'a scheme with no host' => ['https://'];
         yield 'prose, not an address' => ['not a url'];
+        yield 'a single-slash typo' => ['https:/example.com'];
+        yield 'a scheme with no name' => ['://example.com'];
+        yield 'an empty first label' => ['https://.com'];
+        yield 'a websocket' => ['ws://example.com'];
+    }
+
+    /**
+     * The refusals above must not cost the addresses people really use: a
+     * bare host with a port, a raw IP, credentials, a punycode domain.
+     *
+     * @param string $url something the OS should happily open
+     */
+    #[Test]
+    #[DataProvider('frameableUrls')]
+    public function an_address_the_os_can_open_survives(string $url, string $expectedHost): void
+    {
+        self::assertSame($expectedHost, $this->store->add('App', $url)['host']);
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function frameableUrls(): iterable
+    {
+        yield 'a bare host with a port' => ['localhost:9507/os', 'localhost'];
+        yield 'an explicit port' => ['https://intranet.local:8443/x', 'intranet.local'];
+        yield 'a raw address' => ['https://192.168.1.5:8080', '192.168.1.5'];
+        yield 'credentials in the url' => ['https://user:pass@example.com', 'example.com'];
+        yield 'punycode' => ['http://xn--80ak6aa92e.com', 'xn--80ak6aa92e.com'];
+        yield 'an underscored host' => ['https://a_b.example.com', 'a_b.example.com'];
+        yield 'an internationalised path' => ['https://пошта.укр/шлях', 'пошта.укр'];
     }
 
     #[Test]

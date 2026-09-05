@@ -145,16 +145,18 @@ final class WebAppStore
             throw new \InvalidArgumentException('A URL is required.');
         }
 
-        // A string that already declares a scheme must declare an http(s) one.
-        // Prepending https:// to "ftp://files.example.com" used to yield
-        // "https://ftp://files.example.com" — accepted, unframeable, and with
-        // every ftp:// address collapsing onto the single host "ftp", so the
-        // host-dedupe in add() treated them all as one app.
-        if (preg_match('#^([a-z][a-z0-9+.\-]*)://#i', $url, $m)) {
-            if (!in_array(strtolower($m[1]), ['http', 'https'], true)) {
-                throw new \InvalidArgumentException('A valid http(s) URL is required.');
-            }
-        } else {
+        // A scheme-looking prefix must be an http(s) one. Prepending https://
+        // to anything else swallowed the scheme into the host: "ftp://x" became
+        // "https://ftp://x" — accepted, unopenable, and with a host of "ftp",
+        // so the host-dedupe in add() collapsed every ftp address onto one app.
+        // A single-slash typo ("https:/x") did the same with a host of "https".
+        // The digit lookahead keeps "localhost:9507" a bare host with a port
+        // rather than a scheme named "localhost".
+        $isHttp = preg_match('#^https?://#i', $url) === 1;
+        if (!$isHttp && preg_match('#^[a-z][a-z0-9+.\-]*:(?!\d)#i', $url) === 1) {
+            throw new \InvalidArgumentException('A valid http(s) URL is required.');
+        }
+        if (!$isHttp) {
             $url = 'https://' . ltrim($url, '/');
         }
 
@@ -163,14 +165,27 @@ final class WebAppStore
         if ($host === null || $host === '' || !in_array($scheme, ['http', 'https'], true)) {
             throw new \InvalidArgumentException('A valid http(s) URL is required.');
         }
-        // parse_url is lenient enough to hand back "not a url" as a host.
-        if (preg_match('/\s/u', $host) === 1) {
-            throw new \InvalidArgumentException('A valid http(s) URL is required.');
-        }
+        $this->assertHostShape($host);
 
         // Hosts are case-insensitive; without this "YouTube.com" and
         // "youtube.com" register as two separate apps.
         return [$url, mb_strtolower($host)];
+    }
+
+    /**
+     * parse_url is lenient: it hands back "not a url" and ".com" as hosts.
+     * A hostname is dot-separated non-empty labels of letters (any script, so
+     * internationalised domains keep working), digits, hyphens or underscores.
+     *
+     * @throws \InvalidArgumentException
+     */
+    private function assertHostShape(string $host): void
+    {
+        foreach (explode('.', $host) as $label) {
+            if (preg_match('/^[\p{L}\p{N}_-]+$/u', $label) !== 1) {
+                throw new \InvalidArgumentException('A valid http(s) URL is required.');
+            }
+        }
     }
 
     /**
