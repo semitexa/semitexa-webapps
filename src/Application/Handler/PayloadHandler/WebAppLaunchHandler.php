@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Semitexa\WebApps\Application\Handler\PayloadHandler;
 
 use Semitexa\Core\Attribute\AsPayloadHandler;
+use Semitexa\Core\Attribute\InjectAsReadonly;
 use Semitexa\Core\Contract\TypedHandlerInterface;
 use Semitexa\Core\Http\Response\ResourceResponse;
+use Semitexa\Os\Application\Service\OsPreferences;
 use Semitexa\WebApps\Application\Payload\Request\WebAppLaunchPayload;
 use Semitexa\WebApps\Application\Service\WebAppStore;
 
@@ -20,6 +22,9 @@ use Semitexa\WebApps\Application\Service\WebAppStore;
 #[AsPayloadHandler(payload: WebAppLaunchPayload::class, resource: ResourceResponse::class)]
 final class WebAppLaunchHandler implements TypedHandlerInterface
 {
+    #[InjectAsReadonly]
+    protected OsPreferences $prefs;
+
     public function handle(WebAppLaunchPayload $payload, ResourceResponse $resource): ResourceResponse
     {
         $app = (new WebAppStore())->find(trim($payload->getId()));
@@ -33,11 +38,13 @@ final class WebAppLaunchHandler implements TypedHandlerInterface
 
         $url = htmlspecialchars($app['url'], ENT_QUOTES);
         $name = htmlspecialchars($app['name'], ENT_QUOTES);
+        // The window belongs to whoever the operator named their assistant.
+        $assistant = htmlspecialchars($this->prefs->assistantName(), ENT_QUOTES);
 
         $html = <<<HTML
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{$name} · Semi</title>
+<title>{$name} · {$assistant}</title>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
