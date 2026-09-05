@@ -71,8 +71,7 @@ final class WebAppStore
             $name = mb_substr($name, 0, self::MAX_NAME);
         }
 
-        $url = $this->normalizeUrl($url);
-        $host = (string) (parse_url($url, PHP_URL_HOST) ?: '');
+        [$url, $host] = $this->normalizeUrl($url);
 
         $apps = $this->all();
         foreach ($apps as $app) {
@@ -127,15 +126,35 @@ final class WebAppStore
     /**
      * Accept only absolute http/https URLs; default a bare host to https://.
      *
+     * This is a trust boundary, not a formatting nicety: the URL reaches here
+     * from the model through {@see OpenWebAppSkill}'s exposed `url` argument and
+     * ends up as an iframe's src.
+     *
+     * FILTER_VALIDATE_URL is deliberately NOT used — it rejects internationalised
+     * hosts (`https://пошта.укр`) and underscored ones, both of which are real
+     * sites, while still admitting the junk below.
+     *
+     * @return array{string, string} the URL and its lower-cased host
+     *
      * @throws \InvalidArgumentException
      */
-    private function normalizeUrl(string $url): string
+    private function normalizeUrl(string $url): array
     {
         $url = trim($url);
         if ($url === '') {
             throw new \InvalidArgumentException('A URL is required.');
         }
-        if (!preg_match('#^https?://#i', $url)) {
+
+        // A string that already declares a scheme must declare an http(s) one.
+        // Prepending https:// to "ftp://files.example.com" used to yield
+        // "https://ftp://files.example.com" — accepted, unframeable, and with
+        // every ftp:// address collapsing onto the single host "ftp", so the
+        // host-dedupe in add() treated them all as one app.
+        if (preg_match('#^([a-z][a-z0-9+.\-]*)://#i', $url, $m)) {
+            if (!in_array(strtolower($m[1]), ['http', 'https'], true)) {
+                throw new \InvalidArgumentException('A valid http(s) URL is required.');
+            }
+        } else {
             $url = 'https://' . ltrim($url, '/');
         }
 
@@ -144,8 +163,14 @@ final class WebAppStore
         if ($host === null || $host === '' || !in_array($scheme, ['http', 'https'], true)) {
             throw new \InvalidArgumentException('A valid http(s) URL is required.');
         }
+        // parse_url is lenient enough to hand back "not a url" as a host.
+        if (preg_match('/\s/u', $host) === 1) {
+            throw new \InvalidArgumentException('A valid http(s) URL is required.');
+        }
 
-        return $url;
+        // Hosts are case-insensitive; without this "YouTube.com" and
+        // "youtube.com" register as two separate apps.
+        return [$url, mb_strtolower($host)];
     }
 
     /**
@@ -161,7 +186,9 @@ final class WebAppStore
             'id' => (string) ($row['id'] ?? ''),
             'name' => (string) ($row['name'] ?? ''),
             'url' => $url,
-            'host' => (string) ($row['host'] ?? (parse_url($url, PHP_URL_HOST) ?: '')),
+            // Lower-cased on read too, so rows written before the host was
+            // normalised still dedupe against new ones.
+            'host' => mb_strtolower((string) ($row['host'] ?? (parse_url($url, PHP_URL_HOST) ?: ''))),
             'icon' => (string) ($row['icon'] ?? 'globe'),
             'createdAt' => (string) ($row['createdAt'] ?? ''),
         ];
