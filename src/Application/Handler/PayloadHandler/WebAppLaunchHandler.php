@@ -71,6 +71,9 @@ final class WebAppLaunchHandler implements TypedHandlerInterface
 </style></head>
 <body>
   <div class="wrap">
+    <!-- Before the iframe on purpose: a parser-blocking script runs before the
+         frame exists, so its load listener cannot miss the frame's load. -->
+    <script src="__WEBAPP_LAUNCH_JS__"></script>
     <a class="newtab" href="{$url}" target="_blank" rel="noopener">Open in new tab ↗</a>
     <iframe class="frame" src="{$url}" title="{$name}"
       allow="autoplay; encrypted-media; fullscreen; clipboard-write; picture-in-picture"></iframe>
@@ -80,7 +83,6 @@ final class WebAppLaunchHandler implements TypedHandlerInterface
       or <a href="{$url}" target="_blank" rel="noopener">open it in a new tab ↗</a>.
     </div>
   </div>
-<script src="__WEBAPP_LAUNCH_JS__"></script>
 </body></html>
 HTML;
 
