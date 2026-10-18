@@ -9,6 +9,7 @@ use Semitexa\Core\Attribute\InjectAsReadonly;
 use Semitexa\Core\Contract\TypedHandlerInterface;
 use Semitexa\Core\Http\CspNonce;
 use Semitexa\Core\Http\Response\ResourceResponse;
+use Semitexa\Ssr\Application\Service\Asset\AssetManager;
 use Semitexa\Os\Application\Service\OsPreferences;
 use Semitexa\WebApps\Application\Payload\Request\WebAppLaunchPayload;
 use Semitexa\WebApps\Application\Service\WebAppStore;
@@ -79,23 +80,15 @@ final class WebAppLaunchHandler implements TypedHandlerInterface
       or <a href="{$url}" target="_blank" rel="noopener">open it in a new tab ↗</a>.
     </div>
   </div>
-<script>
-  // If the companion is active it sets data-semitexa-companion on <html> and
-  // strips the framing headers, so the frame just works — no hint needed.
-  // Otherwise, after a grace period with no successful load, surface the hint.
-  (function () {
-    var hint = document.getElementById('hint');
-    var frame = document.querySelector('.frame');
-    var loaded = false;
-    frame.addEventListener('load', function () { loaded = true; });
-    setTimeout(function () {
-      var companion = document.documentElement.dataset.semitexaCompanion;
-      if (!companion && !loaded) { hint.style.display = 'block'; }
-    }, 3500);
-  })();
-</script>
+<script src="__WEBAPP_LAUNCH_JS__"></script>
 </body></html>
 HTML;
+
+        // The page's scripts are static assets (fingerprinted, cached immutable);
+        // nothing executable is left inline.
+        $html = strtr($html, [
+            '__WEBAPP_LAUNCH_JS__' => AssetManager::getUrl('js/webapp-launch.js', 'webapps'),
+        ]);
 
         return $resource
             ->setContent(CspNonce::stamp($html))
