@@ -53,11 +53,13 @@ final class WebAppLaunchHandler implements TypedHandlerInterface
   html, body { margin: 0; height: 100%; background: #0c1020; font-family: system-ui, sans-serif; }
   .wrap { position: relative; height: 100%; display: flex; flex-direction: column; }
   .frame { flex: 1 1 auto; min-height: 0; border: 0; width: 100%; background: #0c1020; }
+  /* A strip along the bottom, not a card over the frame: it shows whenever the
+     companion is absent, also over an app that embeds fine. */
   .hint {
-    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-    max-width: 380px; text-align: center; color: #c7d2e8; background: rgba(15,23,42,.94);
-    border: 1px solid rgba(148,163,184,.22); border-radius: 14px; padding: 22px 24px;
-    font-size: 14px; line-height: 1.55; display: none; z-index: 2;
+    position: absolute; left: 12px; right: 12px; bottom: 12px;
+    text-align: center; color: #c7d2e8; background: rgba(15,23,42,.94);
+    border: 1px solid rgba(148,163,184,.22); border-radius: 10px; padding: 8px 14px;
+    font-size: 13px; line-height: 1.5; display: none; z-index: 2;
   }
   .hint b { color: #eaf2ff; }
   .hint a { color: #a78bfa; text-decoration: none; font-weight: 600; }
@@ -71,15 +73,14 @@ final class WebAppLaunchHandler implements TypedHandlerInterface
 </style></head>
 <body>
   <div class="wrap">
-    <!-- Before the iframe on purpose: a parser-blocking script runs before the
-         frame exists, so its load listener cannot miss the frame's load. -->
+    <!-- Inside .wrap: the script finds its root through its own parent. -->
     <script src="__WEBAPP_LAUNCH_JS__"></script>
     <a class="newtab" href="{$url}" target="_blank" rel="noopener">Open in new tab ↗</a>
     <iframe class="frame" src="{$url}" title="{$name}"
       allow="autoplay; encrypted-media; fullscreen; clipboard-write; picture-in-picture"></iframe>
     <div class="hint" id="hint">
-      <b>{$name}</b> blocks being embedded.<br>
-      Install the <b>Semitexa companion</b> extension to run it here with your login —
+      If <b>{$name}</b> stays blank or refuses to connect, it blocks being embedded:
+      install the <b>Semitexa companion</b> extension to run it here with your login,
       or <a href="{$url}" target="_blank" rel="noopener">open it in a new tab ↗</a>.
     </div>
   </div>
