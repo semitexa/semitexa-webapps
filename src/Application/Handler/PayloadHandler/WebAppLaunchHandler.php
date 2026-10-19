@@ -53,13 +53,14 @@ final class WebAppLaunchHandler implements TypedHandlerInterface
   html, body { margin: 0; height: 100%; background: #0c1020; font-family: system-ui, sans-serif; }
   .wrap { position: relative; height: 100%; display: flex; flex-direction: column; }
   .frame { flex: 1 1 auto; min-height: 0; border: 0; width: 100%; background: #0c1020; }
-  /* A strip along the bottom, not a card over the frame: it shows whenever the
-     companion is absent, also over an app that embeds fine. */
+  /* A strip in the column below the frame, not over it: it shows whenever the
+     companion is absent, also beside an app that embeds fine, and the frame
+     shrinks for it so no control at the app's bottom edge is covered. */
   .hint {
-    position: absolute; left: 12px; right: 12px; bottom: 12px;
+    flex: 0 0 auto; margin: 8px 12px 12px;
     text-align: center; color: #c7d2e8; background: rgba(15,23,42,.94);
     border: 1px solid rgba(148,163,184,.22); border-radius: 10px; padding: 8px 14px;
-    font-size: 13px; line-height: 1.5; display: none; z-index: 2;
+    font-size: 13px; line-height: 1.5; display: none;
   }
   .hint b { color: #eaf2ff; }
   .hint a { color: #a78bfa; text-decoration: none; font-weight: 600; }

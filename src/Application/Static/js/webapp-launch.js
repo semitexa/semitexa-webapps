@@ -7,7 +7,7 @@
   // by X-Frame-Options or CSP still fires load, and a cross-origin frame cannot
   // be looked into. A load listener used to count as "embedded", so the hint
   // never appeared for the very case it describes; it is now a strip along the
-  // bottom, worded for either outcome, instead of a card over the app.
+  // bottom, worded for either outcome, beside the app instead of over it.
   (function () {
     // The handler places this script inside the launch .wrap.
     var me = document.currentScript;
