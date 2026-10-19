@@ -9,6 +9,7 @@ use Semitexa\Core\Attribute\InjectAsReadonly;
 use Semitexa\Core\Contract\TypedHandlerInterface;
 use Semitexa\Core\Http\CspNonce;
 use Semitexa\Core\Http\Response\ResourceResponse;
+use Semitexa\Ssr\Application\Service\Asset\AssetManager;
 use Semitexa\Os\Application\Service\OsPreferences;
 use Semitexa\WebApps\Application\Payload\Request\WebAppLaunchPayload;
 use Semitexa\WebApps\Application\Service\WebAppStore;
@@ -52,11 +53,14 @@ final class WebAppLaunchHandler implements TypedHandlerInterface
   html, body { margin: 0; height: 100%; background: #0c1020; font-family: system-ui, sans-serif; }
   .wrap { position: relative; height: 100%; display: flex; flex-direction: column; }
   .frame { flex: 1 1 auto; min-height: 0; border: 0; width: 100%; background: #0c1020; }
+  /* A strip in the column below the frame, not over it: it shows whenever the
+     companion is absent, also beside an app that embeds fine, and the frame
+     shrinks for it so no control at the app's bottom edge is covered. */
   .hint {
-    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-    max-width: 380px; text-align: center; color: #c7d2e8; background: rgba(15,23,42,.94);
-    border: 1px solid rgba(148,163,184,.22); border-radius: 14px; padding: 22px 24px;
-    font-size: 14px; line-height: 1.55; display: none; z-index: 2;
+    flex: 0 0 auto; margin: 8px 12px 12px;
+    text-align: center; color: #c7d2e8; background: rgba(15,23,42,.94);
+    border: 1px solid rgba(148,163,184,.22); border-radius: 10px; padding: 8px 14px;
+    font-size: 13px; line-height: 1.5; display: none;
   }
   .hint b { color: #eaf2ff; }
   .hint a { color: #a78bfa; text-decoration: none; font-weight: 600; }
@@ -70,32 +74,25 @@ final class WebAppLaunchHandler implements TypedHandlerInterface
 </style></head>
 <body>
   <div class="wrap">
+    <!-- Inside .wrap: the script finds its root through its own parent. -->
+    <script src="__WEBAPP_LAUNCH_JS__"></script>
     <a class="newtab" href="{$url}" target="_blank" rel="noopener">Open in new tab ↗</a>
     <iframe class="frame" src="{$url}" title="{$name}"
       allow="autoplay; encrypted-media; fullscreen; clipboard-write; picture-in-picture"></iframe>
     <div class="hint" id="hint">
-      <b>{$name}</b> blocks being embedded.<br>
-      Install the <b>Semitexa companion</b> extension to run it here with your login —
+      If <b>{$name}</b> stays blank or refuses to connect, it blocks being embedded:
+      install the <b>Semitexa companion</b> extension to run it here with your login,
       or <a href="{$url}" target="_blank" rel="noopener">open it in a new tab ↗</a>.
     </div>
   </div>
-<script>
-  // If the companion is active it sets data-semitexa-companion on <html> and
-  // strips the framing headers, so the frame just works — no hint needed.
-  // Otherwise, after a grace period with no successful load, surface the hint.
-  (function () {
-    var hint = document.getElementById('hint');
-    var frame = document.querySelector('.frame');
-    var loaded = false;
-    frame.addEventListener('load', function () { loaded = true; });
-    setTimeout(function () {
-      var companion = document.documentElement.dataset.semitexaCompanion;
-      if (!companion && !loaded) { hint.style.display = 'block'; }
-    }, 3500);
-  })();
-</script>
 </body></html>
 HTML;
+
+        // The page's scripts are static assets (fingerprinted, cached immutable);
+        // nothing executable is left inline.
+        $html = strtr($html, [
+            '__WEBAPP_LAUNCH_JS__' => AssetManager::getUrl('js/webapp-launch.js', 'webapps'),
+        ]);
 
         return $resource
             ->setContent(CspNonce::stamp($html))
