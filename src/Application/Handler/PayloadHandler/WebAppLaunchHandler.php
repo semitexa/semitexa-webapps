@@ -24,12 +24,20 @@ use Semitexa\WebApps\Application\Service\WebAppStore;
 #[AsPayloadHandler(payload: WebAppLaunchPayload::class, resource: ResourceResponse::class)]
 final class WebAppLaunchHandler implements TypedHandlerInterface
 {
+    /**
+     * The container's, which reads the site the request is for: built here
+     * with `new`, its settings store had no tenant context, and every site
+     * read and wrote the root site's list.
+     */
+    #[InjectAsReadonly]
+    protected WebAppStore $store;
+
     #[InjectAsReadonly]
     protected OsPreferences $prefs;
 
     public function handle(WebAppLaunchPayload $payload, ResourceResponse $resource): ResourceResponse
     {
-        $app = (new WebAppStore())->find(trim($payload->getId()));
+        $app = $this->store->find(trim($payload->getId()));
 
         if ($app === null) {
             return $resource

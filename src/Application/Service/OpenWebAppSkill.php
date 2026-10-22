@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Semitexa\WebApps\Application\Service;
 
+use Semitexa\Core\Attribute\InjectAsReadonly;
 use Semitexa\Llm\Attribute\AsAiSkill;
 use Semitexa\Llm\Domain\Contract\InvocableSkillInterface;
 use Semitexa\Llm\Domain\Enum\AiArgumentPolicy;
@@ -39,6 +40,18 @@ use Semitexa\Os\Application\Service\OpenDialogStore;
 )]
 final class OpenWebAppSkill implements InvocableSkillInterface
 {
+    /**
+     * The container's, which reads the site the request is for: built here
+     * with `new`, its settings store had no tenant context, and every site
+     * read and wrote the root site's list.
+     */
+    #[InjectAsReadonly]
+    protected WebAppStore $store;
+
+    /** The container's too: built with `new`, the window was saved to the root site's list. */
+    #[InjectAsReadonly]
+    protected OpenDialogStore $dialogs;
+
     public function invoke(array $arguments): string
     {
         $name = trim((string) ($arguments['name'] ?? ''));
@@ -54,14 +67,14 @@ final class OpenWebAppSkill implements InvocableSkillInterface
         }
 
         try {
-            $app = (new WebAppStore())->add($name, $url);
+            $app = $this->store->add($name, $url);
         } catch (\InvalidArgumentException $e) {
             return 'I couldn\'t open that: ' . $e->getMessage();
         }
 
         // Open it as a dialog wrapping the site. The client reveals the window
         // once it sees the new dialog (reveal-after-executed in the shell).
-        (new OpenDialogStore())->open(
+        $this->dialogs->open(
             skill: 'webapp:' . $app['id'],
             title: $app['name'],
             icon: $app['icon'],
