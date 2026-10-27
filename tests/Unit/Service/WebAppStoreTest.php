@@ -279,11 +279,21 @@ final class WebAppStoreTest extends TestCase
         (new \ReflectionProperty($skill, 'access'))->setValue($skill, $access);
         (new \ReflectionProperty($skill, 'dialogs'))->setValue($skill, $dialogs);
 
+        // Put back what was there, not clear(): a user a fixture signed in
+        // before this call is still signed in for the tests after it.
+        $previousUser = AuthContextStore::getUser();
+        $previousResult = AuthContextStore::getResult();
         AuthContextStore::setUser(new UserPrincipal(new PlatformUser(id: 'u1', email: 'u@example.test', passwordHash: 'x', tenantId: 'museum', role: $role)));
         try {
             return $skill->invoke(['name' => 'YouTube', 'url' => 'https://www.youtube.com']);
         } finally {
             AuthContextStore::clear();
+            if ($previousUser !== null) {
+                AuthContextStore::setUser($previousUser);
+            }
+            if ($previousResult !== null) {
+                AuthContextStore::setResult($previousResult);
+            }
         }
     }
 
