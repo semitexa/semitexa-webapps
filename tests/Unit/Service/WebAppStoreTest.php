@@ -8,6 +8,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Semitexa\Auth\Context\AuthContextStore;
+use Semitexa\Os\Application\Service\OpenDialogStore;
 use Semitexa\Os\Application\Service\OsAuthPolicy;
 use Semitexa\Os\Application\Service\OsConsoleAccess;
 use Semitexa\Platform\Settings\Domain\Contract\SettingsStoreInterface;
@@ -40,23 +41,24 @@ final class WebAppStoreTest extends TestCase
     {
         // The window it opens is a console surface an editor is refused: the
         // site was added to the site's list and its window answered 403.
-        $policy = new OsAuthPolicy();
-        (new \ReflectionProperty($policy, 'authFlag'))->setValue($policy, '1');
-        $access = new OsConsoleAccess();
-        (new \ReflectionProperty($access, 'policy'))->setValue($access, $policy);
-        $skill = new OpenWebAppSkill();
-        (new \ReflectionProperty($skill, 'store'))->setValue($skill, $this->store);
-        (new \ReflectionProperty($skill, 'access'))->setValue($skill, $access);
+        $reply = $this->invokeAs(UserRole::Editor, $dialogs);
 
-        AuthContextStore::setUser(new UserPrincipal(new PlatformUser(id: 'u1', email: 'e@example.test', passwordHash: 'x', tenantId: 'museum', role: UserRole::Editor)));
-        try {
-            $reply = $skill->invoke(['name' => 'YouTube', 'url' => 'https://www.youtube.com']);
-        } finally {
-            AuthContextStore::clear();
-        }
-
-        self::assertStringContainsString('admins', $reply);
+        self::assertSame('Web apps are added by the site\'s admins: ask one to add it.', $reply);
         self::assertSame([], $this->store->all());
+        self::assertSame([], $dialogs->list());
+    }
+
+    /** The other side of the gate: one that refused everybody would pass the editor's case alone. */
+    #[Test]
+    public function an_admin_asking_for_a_site_has_it_added_and_its_window_opened(): void
+    {
+        $reply = $this->invokeAs(UserRole::Admin, $dialogs);
+
+        self::assertSame('Opened YouTube — log in and use it right here. I\'ll keep it in your apps.', $reply);
+        $apps = $this->store->all();
+        self::assertCount(1, $apps);
+        self::assertSame(['YouTube', 'www.youtube.com'], [$apps[0]['name'], $apps[0]['host']]);
+        self::assertSame(['/os/webapp/' . rawurlencode($apps[0]['id'])], array_column($dialogs->list(), 'entry'));
     }
 
     #[Test]
@@ -261,6 +263,28 @@ final class WebAppStoreTest extends TestCase
     {
         // FILTER_VALIDATE_URL rejects these; real sites use them.
         self::assertSame('https://пошта.укр', $this->store->add('Пошта', 'https://пошта.укр')['url']);
+    }
+
+    /** "Open YouTube" from a signed-in user of $role, with the OS sign-in gate on. */
+    private function invokeAs(UserRole $role, ?OpenDialogStore &$dialogs): string
+    {
+        $policy = new OsAuthPolicy();
+        (new \ReflectionProperty($policy, 'authFlag'))->setValue($policy, '1');
+        $access = new OsConsoleAccess();
+        (new \ReflectionProperty($access, 'policy'))->setValue($access, $policy);
+        $dialogs = new OpenDialogStore();
+        (new \ReflectionProperty($dialogs, 'settings'))->setValue($dialogs, $this->inMemorySettings());
+        $skill = new OpenWebAppSkill();
+        (new \ReflectionProperty($skill, 'store'))->setValue($skill, $this->store);
+        (new \ReflectionProperty($skill, 'access'))->setValue($skill, $access);
+        (new \ReflectionProperty($skill, 'dialogs'))->setValue($skill, $dialogs);
+
+        AuthContextStore::setUser(new UserPrincipal(new PlatformUser(id: 'u1', email: 'u@example.test', passwordHash: 'x', tenantId: 'museum', role: $role)));
+        try {
+            return $skill->invoke(['name' => 'YouTube', 'url' => 'https://www.youtube.com']);
+        } finally {
+            AuthContextStore::clear();
+        }
     }
 
     private function inMemorySettings(): SettingsStoreInterface
