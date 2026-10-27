@@ -33,6 +33,11 @@
             "name": "webapps",
             "description": "External web-apps registry + generic site wrapper for the OS",
             "extends": "os"
+        },
+        "semitexa": {
+            "floors": {
+                "semitexa/os": "next"
+            }
         }
     },
     "keywords": [
