@@ -7,7 +7,14 @@ namespace Semitexa\WebApps\Tests\Unit\Service;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Semitexa\Auth\Context\AuthContextStore;
+use Semitexa\Os\Application\Service\OsAuthPolicy;
+use Semitexa\Os\Application\Service\OsConsoleAccess;
 use Semitexa\Platform\Settings\Domain\Contract\SettingsStoreInterface;
+use Semitexa\Platform\User\Auth\UserPrincipal;
+use Semitexa\Platform\User\Domain\Enum\UserRole;
+use Semitexa\Platform\User\Domain\Model\PlatformUser;
+use Semitexa\WebApps\Application\Service\OpenWebAppSkill;
 use Semitexa\WebApps\Application\Service\WebAppStore;
 
 /**
@@ -26,6 +33,30 @@ final class WebAppStoreTest extends TestCase
     {
         $this->store = new WebAppStore();
         (new \ReflectionProperty(WebAppStore::class, 'settings'))->setValue($this->store, $this->inMemorySettings());
+    }
+
+    #[Test]
+    public function an_editor_asking_for_a_site_is_told_to_ask_an_admin_and_nothing_is_added(): void
+    {
+        // The window it opens is a console surface an editor is refused: the
+        // site was added to the site's list and its window answered 403.
+        $policy = new OsAuthPolicy();
+        (new \ReflectionProperty($policy, 'authFlag'))->setValue($policy, '1');
+        $access = new OsConsoleAccess();
+        (new \ReflectionProperty($access, 'policy'))->setValue($access, $policy);
+        $skill = new OpenWebAppSkill();
+        (new \ReflectionProperty($skill, 'store'))->setValue($skill, $this->store);
+        (new \ReflectionProperty($skill, 'access'))->setValue($skill, $access);
+
+        AuthContextStore::setUser(new UserPrincipal(new PlatformUser(id: 'u1', email: 'e@example.test', passwordHash: 'x', tenantId: 'museum', role: UserRole::Editor)));
+        try {
+            $reply = $skill->invoke(['name' => 'YouTube', 'url' => 'https://www.youtube.com']);
+        } finally {
+            AuthContextStore::clear();
+        }
+
+        self::assertStringContainsString('admins', $reply);
+        self::assertSame([], $this->store->all());
     }
 
     #[Test]

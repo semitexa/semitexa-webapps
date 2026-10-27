@@ -11,6 +11,8 @@ use Semitexa\Llm\Domain\Enum\AiArgumentPolicy;
 use Semitexa\Llm\Domain\Enum\AiConfirmationMode;
 use Semitexa\Llm\Domain\Enum\AiRiskLevel;
 use Semitexa\Os\Application\Service\OpenDialogStore;
+use Semitexa\Os\Application\Service\OsConsoleAccess;
+use Semitexa\WebApps\Application\Payload\Request\WebAppLaunchPayload;
 
 /**
  * Open (and remember) any external website as an OS app. The model resolves the
@@ -52,8 +54,16 @@ final class OpenWebAppSkill implements InvocableSkillInterface
     #[InjectAsReadonly]
     protected OpenDialogStore $dialogs;
 
+    /** Who may open the window this adds: an editor's site was added to the site's list and its window refused. */
+    #[InjectAsReadonly]
+    protected OsConsoleAccess $access;
+
     public function invoke(array $arguments): string
     {
+        if (isset($this->access) && !$this->access->opens(WebAppLaunchPayload::class)) {
+            return 'Web apps are added by the site\'s admins: ask one to add it.';
+        }
+
         $name = trim((string) ($arguments['name'] ?? ''));
         $url = trim((string) ($arguments['url'] ?? ''));
 
