@@ -12,6 +12,7 @@
     "require": {
         "php": "^8.4",
         "semitexa/core": ">=2026.09.17.1037 || dev-master",
+        "semitexa/authorization": "*",
         "semitexa/os": "*",
         "semitexa/ssr": "*",
         "semitexa/llm": "*",
@@ -32,6 +33,11 @@
             "name": "webapps",
             "description": "External web-apps registry + generic site wrapper for the OS",
             "extends": "os"
+        },
+        "semitexa": {
+            "floors": {
+                "semitexa/os": "next"
+            }
         }
     },
     "keywords": [
